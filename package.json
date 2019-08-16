@@ -34,6 +34,7 @@
     "debug": "^4.0.1",
     "node-fetch": "^2.2.0",
     "sandwich-stream": "^2.0.1",
+    "telegram-passport": "^1.0.5",
     "telegram-typings": "^3.6.0"
   },
   "devDependencies": {
