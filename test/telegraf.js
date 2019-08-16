@@ -322,3 +322,12 @@ test.cb('should respect webhookReply runtime change (per request)', (t) => {
   })
   t.throwsAsync(bot.handleUpdate({ message: BaseTextMessage }, resStub)).then(() => t.end())
 })
+
+test.cb('should provide decryptPassportData method and passport_data handler', (t) => {
+  const bot = new Telegraf()
+  bot.on('passport_data', ctx => {
+    t.true('decryptPassportData' in ctx)
+    t.end()
+  })
+  bot.handleUpdate({ message: { passport_data: '' } }, resStub)
+})
