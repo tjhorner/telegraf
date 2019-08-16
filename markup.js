@@ -21,7 +21,7 @@ class Markup {
   }
 
   keyboard (buttons, options) {
-    const keyboard = buildKeyboard(buttons, Object.assign({columns: 1}, options))
+    const keyboard = buildKeyboard(buttons, Object.assign({ columns: 1 }, options))
     if (keyboard && keyboard.length > 0) {
       this.keyboard = keyboard
     }
@@ -39,7 +39,7 @@ class Markup {
   }
 
   inlineKeyboard (buttons, options) {
-    const keyboard = buildKeyboard(buttons, Object.assign({columns: buttons.length}, options))
+    const keyboard = buildKeyboard(buttons, Object.assign({ columns: buttons.length }, options))
     if (keyboard && keyboard.length > 0) {
       this.inline_keyboard = keyboard
     }
@@ -80,6 +80,10 @@ class Markup {
 
   payButton (text, hide) {
     return Markup.payButton(text, hide)
+  }
+
+  loginButton (text, url, opts, hide) {
+    return Markup.loginButton(text, url, opts, hide)
   }
 
   static removeKeyboard (value) {
@@ -144,6 +148,14 @@ class Markup {
 
   static payButton (text, hide = false) {
     return { text: text, pay: true, hide: hide }
+  }
+
+  static loginButton (text, url, opts = {}, hide = false) {
+    return {
+      text: text,
+      login_url: Object.assign({}, opts, { url: url }),
+      hide: hide
+    }
   }
 }
 

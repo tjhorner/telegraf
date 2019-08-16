@@ -17,9 +17,17 @@ export interface TelegramOptions {
    * Reply via webhook
    */
   webhookReply?: boolean
+
+  /**
+   * Path to API. default: https://api.telegram.org
+   */
+  apiRoot?: string
 }
 
 export interface Context {
+  updateType: tt.UpdateType;
+  updateSubTypes: tt.MessageSubTypes[];
+  update: tt.Update;
   telegram: Telegram
   callbackQuery?: tt.CallbackQuery
   channelPost?: tt.Message
@@ -29,6 +37,7 @@ export interface Context {
   editedMessage?: tt.Message
   from?: tt.User
   inlineQuery?: tt.InlineQuery
+  match?: RegExpExecArray
   me?: string
   message?: tt.IncomingMessage
   preCheckoutQuery?: tt.PreCheckoutQuery
@@ -214,6 +223,14 @@ export interface ContextMessageUpdate extends Context {
   replyWithPhoto(photo: tt.InputFile, extra?: tt.ExtraPhoto): Promise<tt.MessagePhoto>
 
   /**
+   * Use this method to send a group of photos or videos as an album
+   * @param media A JSON-serialized array describing photos and videos to be sent, must include 2–10 items
+   * @param extra Additional params to send media group
+   * @returns On success, an array of the sent Messages is returned
+   */
+  replyWithMediaGroup(media: tt.MessageMedia[], extra?: tt.ExtraMediaGroup): Promise<Array<tt.Message>>
+
+  /**
    * Use this method to send .webp stickers
    * @param sticker Sticker to send. Pass a file_id as String to send a file that exists on the Telegram servers (recommended), pass an HTTP URL as a String for Telegram to get a .webp file from the Internet, or upload a new one using multipart/form-data
    * @param extra Additional params to send sticker
@@ -230,6 +247,14 @@ export interface ContextMessageUpdate extends Context {
    */
   replyWithVideo(video: tt.InputFile, extra?: tt.ExtraVideo): Promise<tt.MessageVideo>
 
+  /**
+   * Use this method to send audio files, if you want Telegram clients to display the file as a playable voice message. For this to work, your audio must be in an .ogg file encoded with OPUS (other formats may be sent as Audio or Document). On success, the sent Message is returned. Bots can currently send voice messages of up to 50 MB in size, this limit may be changed in the future.
+   * @param voice Audio file to send. Pass a file_id as String to send a file that exists on the Telegram servers (recommended), pass an HTTP URL as a String for Telegram to get a file from the Internet, or upload a new one using multipart/form-data
+   * @param extra Additional params to send voice
+   * @returns a Message on success
+   */
+  replyWithVoice(voice: tt.InputFile, extra?: tt.ExtraVoice): Promise<tt.MessageVoice>
+
 
   // ------------------------------------------------------------------------------------------ //
   // ------------------------------------------------------------------------------------------ //
@@ -244,14 +269,7 @@ export interface ContextMessageUpdate extends Context {
    */
   answerInlineQuery(results: tt.InlineQueryResult[], extra?: tt.ExtraAnswerInlineQuery): Promise<boolean>
 
-  /**
-   * Use this method to send answers to callback queries.
-   * @param text Notification text
-   * @param url Game url
-   * @param showAlert Show alert instead of notification
-   * @param cacheTime The maximum amount of time in seconds that the result of the callback query may be cached client-side. Telegram apps will support caching starting in version 3.14. Defaults to 0.
-   */
-  answerCallbackQuery(text?: string, url?: string, showAlert?: boolean, cacheTime?: number): Promise<boolean>
+  answerCbQuery(text?: string, showAlert?: boolean, extra?: object): Promise<boolean>
 
   /**
    * Use this method to send answers to game query.
@@ -307,6 +325,14 @@ export interface ContextMessageUpdate extends Context {
   editMessageReplyMarkup(markup?: tt.InlineKeyboardMarkup): Promise<tt.Message | boolean>
 
   /**
+   * Use this method to edit animation, audio, document, photo, or video messages.
+   * @returns On success, if the edited message was sent by the bot, the edited Message is returned, otherwise True is returned.
+   * @param media New media of message
+   * @param markup Markup of inline keyboard
+   */
+  editMessageMedia(media: tt.MessageMedia ,extra?: tt.ExtraEditMessage): Promise<tt.Message | boolean>
+
+  /**
    * Use this method to delete a message, including service messages, with the following limitations:
    * - A message can only be deleted if it was sent less than 48 hours ago.
    * - Bots can delete outgoing messages in groups and supergroups.
@@ -336,35 +362,19 @@ export interface ContextMessageUpdate extends Context {
 
 }
 
-export interface Middleware<C extends ContextMessageUpdate> {
-  (ctx: C, next?: () => any): any
+export interface Middleware<TContext extends ContextMessageUpdate> {
+  (ctx: TContext, next?: () => any): any
 }
 
 export type HearsTriggers = string[] | string | RegExp | RegExp[] | Function
 
-export class Telegram {
+export const Telegram: TelegramConstructor;
+
+export interface Telegram {
   /**
    * Use this property to control reply via webhook feature.
    */
-  public webkhookReply: boolean
-
-  /**
-   * Initialize new Telegram app.
-   * @param token Bot token
-   * @param options Telegram options
-   */
-  constructor(token: string, options: TelegramOptions)
-
-
-  /**
-   * Use this method to send answers to callback queries.
-   * @param callbackQueryId Query id
-   * @param text Notification text
-   * @param url Game url
-   * @param showAlert Show alert instead of notification
-   * @param cacheTime The maximum amount of time in seconds that the result of the callback query may be cached client-side. Telegram apps will support caching starting in version 3.14. Defaults to 0.
-   */
-  answerCallbackQuery(callbackQueryId: string, text?: string, url?: string, showAlert?: boolean, cacheTime?: number): Promise<boolean>
+  webhookReply: boolean
 
   /**
    * Use this method to send answers to game query.
@@ -524,6 +534,12 @@ export class Telegram {
   exportChatInviteLink(chatId: number | string): Promise<string>
 
   /**
+   * Use this method to get basic information about the bot
+   * @returns a User object on success.
+   */
+  getMe(): Promise<tt.User>
+
+  /**
    * Use this method to get up to date information about the chat (current name of the user for one-on-one conversations, current username of a user, group or channel, etc.)
    * @param chatId Unique identifier for the target chat or username of the target supergroup or channel (in the format @channelusername)
    * @returns a Chat object on success.
@@ -553,6 +569,21 @@ export class Telegram {
   getChatMembersCount(chatId: string | number): Promise<number>
 
   /**
+   * Use this method to restrict a user in a supergroup. The bot must be an administrator in the supergroup for this to work and must have the appropriate admin rights. Pass True for all boolean parameters to lift restrictions from a user. Returns True on success.
+   * @param chatId Unique identifier for the target chat or username of the target supergroup (in the format @supergroupusername)
+   * @param user_id Unique identifier of the target user
+   * @param extra Additional params for restrict chat member
+   * @returns True on success
+   */
+  restrictChatMember(chatId: string | number, userId: number, extra?: {
+    until_date?: boolean,
+    can_send_messages?: boolean,
+    can_send_media_messages?: boolean,
+    can_send_other_messages?: boolean,
+    can_add_web_page_previews?: boolean
+  }): Promise<boolean>
+
+  /**
    * Use this method for your bot to leave a group, supergroup or channel
    * @param chatId Unique identifier for the target chat or username of the target supergroup or channel (in the format @channelusername)
    * @returns True on success
@@ -575,7 +606,7 @@ export class Telegram {
    * @param extra SendMessage additional params
    * @returns sent Message if Success
    */
-  sendMessage(chatId: number | string, text: string, extra?: tt.ExtraReplyMessage): Promise<tt.Message>
+  sendMessage(chatId: number | string, text: string, extra?: tt.ExtraEditMessage): Promise<tt.Message>
 
   /**
    * Use this method to send audio files, if you want Telegram clients to display them in the music player.
@@ -652,6 +683,24 @@ export class Telegram {
   sendPhoto(chatId: number | string, photo: tt.InputFile, extra?: tt.ExtraPhoto): Promise<tt.MessagePhoto>
 
   /**
+   * Use this method to send a group of photos or videos as an album
+   * @param chatId Unique identifier for the target chat or username of the target channel (in the format @channelusername)
+   * @param media A JSON-serialized array describing photos and videos to be sent, must include 2–10 items
+   * @param extra Additional params to send media group
+   * @returns On success, an array of the sent Messages is returned
+   */
+  sendMediaGroup(chatId: number | string, media: tt.MessageMedia[], extra?: tt.ExtraMediaGroup): Promise<Array<tt.Message>>
+
+  /**
+   * Use this method to send .gif animations
+   * @param chatId Unique identifier for the target chat or username of the target channel (in the format @channelusername)
+   * @param animation Animation to send. Pass a file_id as String to send a GIF that exists on the Telegram servers (recommended), pass an HTTP URL as a String for Telegram to get a GIF from the Internet, or upload a new GIF using multipart/form-data
+   * @param extra Additional params to send GIF
+   * @returns a Message on success
+   */
+  sendAnimation(chatId: number | string, animation: tt.InputFile, extra?: tt.ExtraAnimation): Promise<tt.MessageAnimation>
+
+  /**
    * Use this method to send .webp stickers
    * @param chatId Unique identifier for the target chat or username of the target channel (in the format @channelusername)
    * @param sticker Sticker to send. Pass a file_id as String to send a file that exists on the Telegram servers (recommended), pass an HTTP URL as a String for Telegram to get a .webp file from the Internet, or upload a new one using multipart/form-data
@@ -671,6 +720,15 @@ export class Telegram {
   sendVideo(chatId: number | string, video: tt.InputFile, extra?: tt.ExtraVideo): Promise<tt.MessageVideo>
 
   /**
+   * Use this method to send audio files, if you want Telegram clients to display the file as a playable voice message. For this to work, your audio must be in an .ogg file encoded with OPUS (other formats may be sent as Audio or Document). On success, the sent Message is returned. Bots can currently send voice messages of up to 50 MB in size, this limit may be changed in the future.
+   * @param chatId Unique identifier for the target chat or username of the target channel (in the format @channelusername)
+   * @param voice Audio file to send. Pass a file_id as String to send a file that exists on the Telegram servers (recommended), pass an HTTP URL as a String for Telegram to get a file from the Internet, or upload a new one using multipart/form-data
+   * @param extra Additional params to send voice
+   * @returns a Message on success
+   */
+  sendVoice(chatId: number | string, voice: tt.InputFile, extra?: tt.ExtraVoice): Promise<tt.MessageVoice>
+
+  /**
    * Use this method to specify a url and receive incoming updates via an outgoing webhook
    * @param url HTTPS url to send updates to. Use an empty string to remove webhook integration
    * @param cert Upload your public key certificate so that the root certificate in use can be checked
@@ -678,9 +736,52 @@ export class Telegram {
    * @param allowedUpdates List the types of updates you want your bot to receive
    * @returns True on success
    */
-  setWebhook (url: string, cert?: tt.InputFile, maxConnections?: number, allowedUpdates?: string[]): Promise<boolean>;
+  setWebhook(url: string, cert?: tt.InputFile, maxConnections?: number, allowedUpdates?: string[]): Promise<boolean>;
+
+  /**
+   * Use this method to delete webhook
+   * @returns True on success
+   */
+  deleteWebhook(): Promise<boolean>;
+
+  /**
+   * Use this method to get information about set webhook
+   * @returns a WebhookInfo on success
+   */
+  getWebhookInfo(): Promise<tt.WebhookInfo>;
+
+  /**
+   * Use this method to get link to a file by file id
+   * @param fileId Id of file to get link to
+   * @returns a String with an url to the file
+   */
+  getFileLink(fileId: string): Promise<string>;
+
+  /**
+   * Use this method to kick a user from a group, a supergroup or a channel. In the case of supergroups and channels, the user will not be able to return to the group on their own using invite links, etc., unless unbanned first. The bot must be an administrator in the chat for this to work and must have the appropriate admin rights
+   * @param chatId Unique identifier for the target group or username of the target supergroup or channel (in the format `@channelusername`)
+   * @param userId Unique identifier of the target user
+   * @param untilDate Date when the user will be unbanned, unix time. If user is banned for more than 366 days or less than 30 seconds from the current time they are considered to be banned forever
+   * @returns True on success
+   */
+  kickChatMember(chatId: number | string, userId: number, untilDate?: number): Promise<boolean>;
+
+  /**
+   * Use this method to get updates from Telegram server. Bot should be in `polling` mode
+   * @returns Array of updates
+   */
+  getUpdates(): Promise<any[]>;
+
 }
 
+export interface TelegramConstructor {
+  /**
+   * Initialize new Telegram app.
+   * @param token Bot token
+   * @param options Telegram options
+   */
+  new(token: string, options?: TelegramOptions): Telegram;
+}
 
 export interface TelegrafOptions {
   /**
@@ -694,109 +795,128 @@ export interface TelegrafOptions {
   username?: string
 }
 
-export class Composer<C extends ContextMessageUpdate> {
+export const Composer: ComposerConstructor;
 
-  constructor(...middlewares: Array<Middleware<C>>)
+export interface Composer<TContext extends ContextMessageUpdate> {
 
   /**
    * Registers a middleware.
    * @param middleware Middleware function
    */
-  use(middleware: Middleware<C>, ...middlewares: Array<Middleware<C>>): Telegraf<C>
+  use(middleware: Middleware<TContext>, ...middlewares: Array<Middleware<TContext>>): Telegraf<TContext>
 
   /**
    * Registers middleware for provided update type.
    * @param updateTypes Update type
    * @param middlewares Middleware functions
    */
-  on(updateTypes: tt.UpdateType | tt.UpdateType[] | tt.MessageSubTypes | tt.MessageSubTypes[], middleware: Middleware<C>, ...middlewares: Array<Middleware<C>>): Composer<C>
+  on(updateTypes: tt.UpdateType | tt.UpdateType[] | tt.MessageSubTypes | tt.MessageSubTypes[], middleware: Middleware<TContext>, ...middlewares: Array<Middleware<TContext>>): Composer<TContext>
+
+  /**
+   * Return the middleware created by this Composer
+   */
+  middleware(): Middleware<TContext>
 
   /**
    * Registers middleware for handling text messages.
    * @param triggers Triggers
    * @param middlewares Middleware functions
    */
-  hears(triggers: HearsTriggers, middleware: Middleware<C>, ...middlewares: Array<Middleware<C>>): Composer<C>
+  hears(triggers: HearsTriggers, middleware: Middleware<TContext>, ...middlewares: Array<Middleware<TContext>>): Composer<TContext>
+
+  /**
+   * Registers middleware for handling callbackQuery data with regular expressions
+   * @param triggers Triggers
+   * @param middlewares Middleware functions
+   */
+  action(triggers: HearsTriggers, middleware: Middleware<TContext>, ...middlewares: Array<Middleware<TContext>>): Composer<TContext>
 
   /**
    * Command handling.
    * @param command Commands
-   * @param middlwares Middleware functions
+   * @param middlewares Middleware functions
    */
-  command(command: string | string[], middleware: Middleware<C>, ...middlewares: Array<Middleware<C>>): Composer<C>
+  command(command: string | string[], middleware: Middleware<TContext>, ...middlewares: Array<Middleware<TContext>>): Composer<TContext>
 
   /**
    * Registers middleware for handling callback_data actions with game query.
    * @param middlewares Middleware functions
    */
-  gameQuery(middleware: Middleware<C>, ...middlewares: Array<Middleware<C>>): Composer<C>
+  gameQuery(middleware: Middleware<TContext>, ...middlewares: Array<Middleware<TContext>>): Composer<TContext>
 
   /**
    * Registers middleware for handling callback_data actions on start.
    * @param middlewares Middleware functions
    */
-  start(middleware: Middleware<C>, ...middlewares: Array<Middleware<C>>): Composer<C>
+  start(middleware: Middleware<TContext>, ...middlewares: Array<Middleware<TContext>>): Composer<TContext>
 
   /**
    * Registers middleware for handling callback_data actions on help.
    * @param middlewares Middleware functions
    */
-  help(middleware: Middleware<C>, ...middlewares: Array<Middleware<C>>): Composer<C>
+  help(middleware: Middleware<TContext>, ...middlewares: Array<Middleware<TContext>>): Composer<TContext>
+}
+
+export interface ComposerConstructor {
+
+  new <TContext extends ContextMessageUpdate>(): Composer<TContext>;
+
+  new <TContext extends ContextMessageUpdate>(...middlewares: Array<Middleware<TContext>>): Composer<TContext>;
 
   /**
    * Compose middlewares returning a fully valid middleware comprised of all those which are passed.
    * @param middlewares Array of middlewares functions
    */
-  static compose<R extends ContextMessageUpdate>(middlewares: Array<Middleware<any>>): Middleware<R>
+  compose<TContext extends ContextMessageUpdate>(middlewares: Array<Middleware<any>>): Middleware<TContext>
 
   /**
    * Generates middleware for handling provided update types.
    * @param updateTypes Update type
    * @param middleware Middleware function
    */
-  static mount<C extends ContextMessageUpdate, R extends ContextMessageUpdate>
-    (updateTypes: tt.UpdateType | tt.UpdateType[], middleware: Middleware<C>): Middleware<R>
+  mount<TContext extends ContextMessageUpdate, UContext extends ContextMessageUpdate>
+    (updateTypes: tt.UpdateType | tt.UpdateType[], ...middleware: Array<Middleware<TContext>>): Middleware<UContext>
 
   /**
    * Generates middleware for handling text messages with regular expressions.
    * @param triggers Triggers
    * @param handler Handler
    */
-  static hears<C extends ContextMessageUpdate, R extends ContextMessageUpdate>
-    (triggers: HearsTriggers, handler: Middleware<C>): Middleware<R>
+  hears<TContext extends ContextMessageUpdate, UContext extends ContextMessageUpdate>
+    (triggers: HearsTriggers, ...handler: Array<Middleware<TContext>>): Middleware<UContext>
 
   /**
    * Generates middleware for handling callbackQuery data with regular expressions.
    * @param triggers Triggers
    * @param handler Handler
    */
-  static action<C extends ContextMessageUpdate, R extends ContextMessageUpdate>
-    (triggers: HearsTriggers, handler: Middleware<C>): Middleware<R>
+  action<TContext extends ContextMessageUpdate, UContext extends ContextMessageUpdate>
+    (triggers: HearsTriggers, ...handler: Array<Middleware<TContext>>): Middleware<UContext>
 
   /**
    * Generates pass thru middleware.
    */
-  static passThru<C extends ContextMessageUpdate>(): Middleware<C>
+  passThru<TContext extends ContextMessageUpdate>(): Middleware<TContext>
 
   /**
    * Generates safe version of pass thru middleware.
    */
-  static safePassThru<C extends ContextMessageUpdate>(): Middleware<C>
+  safePassThru<TContext extends ContextMessageUpdate>(): Middleware<TContext>
 
   /**
    * Generates optional middleware.
    * @param test Value or predicate (ctx) => bool
    * @param middleware Middleware function
    */
-  static optional<C extends ContextMessageUpdate, R extends ContextMessageUpdate>
-    (test: boolean | ((ctx: C) => boolean), middleware: Middleware<C>): Middleware<R>
+  optional<TContext extends ContextMessageUpdate, UContext extends ContextMessageUpdate>
+    (test: boolean | ((ctx: TContext) => boolean), ...middleware: Array<Middleware<TContext>>): Middleware<UContext>
 
   /**
    * Generates filter middleware.
    * @param test  Value or predicate (ctx) => bool
    */
-  static filter<C extends ContextMessageUpdate>
-    (test: boolean | ((ctx: C) => boolean)): Middleware<C>
+  filter<TContext extends ContextMessageUpdate>
+    (test: boolean | ((ctx: TContext) => boolean)): Middleware<TContext>
 
   /**
    * Generates branch middleware.
@@ -804,37 +924,80 @@ export class Composer<C extends ContextMessageUpdate> {
    * @param trueMiddleware true action middleware
    * @param falseMiddleware false action middleware
    */
-  static branch<C extends ContextMessageUpdate, T extends ContextMessageUpdate, F extends ContextMessageUpdate, R extends ContextMessageUpdate>
-    (test: boolean | ((ctx: C) => boolean), trueMiddleware: Middleware<T>, falseMiddleware: Middleware<F>): Middleware<R>
+  branch<TContext extends ContextMessageUpdate, UContext extends ContextMessageUpdate, VContext extends ContextMessageUpdate, WContext extends ContextMessageUpdate>
+    (test: boolean | ((ctx: TContext) => boolean), trueMiddleware: Middleware<UContext>, falseMiddleware: Middleware<VContext>): Middleware<WContext>
 
-  static reply<C extends ContextMessageUpdate>(text: string, extra?: tt.ExtraReplyMessage): Middleware<C>
+  reply<TContext extends ContextMessageUpdate>(text: string, extra?: tt.ExtraReplyMessage): Middleware<TContext>
+
+  /**
+   * Allows it to console.log each request received.
+   */
+  fork<TContext extends ContextMessageUpdate>(middleware: Middleware<TContext>): Function;
+
+  log(logFn?: Function): Middleware<ContextMessageUpdate>;
+
+  /**
+   * Generates middleware which passes through when the requested chat type is not in the request.
+   * @param Chat Type to trigger the given middleware. Other types will pass through
+   * @param middleware Middleware function
+   */
+  chatType<TContext extends ContextMessageUpdate, UContext extends ContextMessageUpdate>
+    (type: tt.ChatType | tt.ChatType[], ...middleware: Array<Middleware<TContext>>): Middleware<UContext>
+
+  /**
+   * Generates middleware which passes through when the requested chat type is not a private chat.
+   * @param middleware Middleware function
+   */
+  privateChat<TContext extends ContextMessageUpdate, UContext extends ContextMessageUpdate>
+    (...middleware: Array<Middleware<TContext>>): Middleware<UContext>
+
+  /**
+   * Generates middleware which passes through when the requested chat type is not a group.
+   * @param middleware Middleware function
+   */
+  groupChat<TContext extends ContextMessageUpdate, UContext extends ContextMessageUpdate>
+    (...middleware: Array<Middleware<TContext>>): Middleware<UContext>
 }
 
+export const Telegraf: TelegrafConstructor;
 
-export class Telegraf<C extends ContextMessageUpdate> extends Composer<C> {
+export interface Telegraf<TContext extends ContextMessageUpdate> extends Composer<TContext> {
   /**
    * Use this property to get/set bot token
    */
-  public token: string
+  token: string
 
   /**
    * Use this property to control reply via webhook feature.
    */
-  public webhookReply: boolean
+  webhookReply: boolean
 
   /**
    * Use this property to get telegram instance
    */
-  public telegram: Telegram
+  telegram: Telegram
 
   /**
-   * Initialize new Telegraf app.
-   * @param token Bot token
-   * @param options options
-   * @example
-   * new Telegraf(token, options)
+   * Use this property to extend context and support your custom interface
    */
-  constructor(token: string, options?: TelegrafOptions)
+  context: TContext
+
+  /**
+   * Telegraf options
+   */
+  options: TOptions
+
+  /**
+   * Launch bot in long-polling or webhook mode.
+   *
+   * @param options [See reference to get more]{@link https://telegraf.js.org/#/?id=launch}
+   */
+  launch(
+    options?: {
+      polling?: { timeout?: number, limit?: number, allowedUpdates?: tt.UpdateType[] },
+      webhook?: { hookPath: string, tlsOptions: TlsOptions | null, port: number, host?: string }
+    }
+  ): Promise<void>
 
   /**
    * Start poll updates.
@@ -842,28 +1005,28 @@ export class Telegraf<C extends ContextMessageUpdate> extends Composer<C> {
    * @param limit Limits the number of updates to be retrieved
    * @param allowedUpdates List the types of updates you want your bot to receive
    */
-  startPolling(timeout?: number, limit?: number, allowedUpdates?: tt.UpdateType[]): Telegraf<C>
+  startPolling(timeout?: number, limit?: number, allowedUpdates?: tt.UpdateType[]): Telegraf<TContext>
 
   /**
-   * Start listening @ https://host:port/webhookPath for Telegram calls.
-   * @param webhookPath Webhook url path (see Telegraf.setWebhook)
+   * Start listening @ https://host:port/hookPath for Telegram calls.
+   * @param hookPath Webhook url path (see Telegraf.setWebhook)
    * @param tlsOptions TLS server options. Pass null to use http
    * @param port Port number
    * @param host Hostname
    */
-  startWebhook(webhookPath: string, tlsOptions: TlsOptions | null, port: number, host?: string): Telegraf<C>
+  startWebhook(hookPath: string, tlsOptions: TlsOptions | null, port: number, host?: string): Telegraf<TContext>
 
   /**
    * Stop Webhook and polling
    */
-  stop(): Telegraf<C>
+  stop(): Telegraf<TContext>
 
   /**
    * Return a callback function suitable for the http[s].createServer() method to handle a request.
    * You may also use this callback function to mount your telegraf app in a Koa/Connect/Express app.
-   * @param webhookPath Webhook url path (see Telegraf.setWebhook)
+   * @param hookPath Webhook url path (see Telegraf.setWebhook)
    */
-  webhookCallback(webhookPath: string): (req: IncomingMessage, res: ServerResponse) => void
+  webhookCallback(hookPath: string): (req: IncomingMessage, res: ServerResponse) => void
 
   /**
    * Handle raw Telegram update. In case you use centralized webhook server, queue, etc.
@@ -871,7 +1034,218 @@ export class Telegraf<C extends ContextMessageUpdate> extends Composer<C> {
    * @param webhookResponse http.ServerResponse
    */
   handleUpdate(rawUpdate: tt.Update, webhookResponse?: ServerResponse): Promise<any>
+
+  catch(logFn?: Function): void;
 }
 
+export type CallbackGame = string;
+
+export interface Button {
+  text: string;
+  hide: boolean;
+}
+
+export interface ContactRequestButton {
+  text: string;
+  hide: boolean;
+  request_contact: boolean;
+}
+
+export interface LocationRequestButton {
+  text: string;
+  hide: boolean;
+  request_location: boolean;
+}
+
+export interface UrlButton {
+  url: string;
+  text: string;
+  hide?: boolean;
+}
+
+export interface CallbackButton {
+  text: string;
+  hide: boolean;
+  callback_data: string;
+}
+
+export interface SwitchToChatButton {
+  text: string;
+  hide: boolean;
+  switch_inline_query: string;
+}
+
+export interface SwitchToCurrentChatButton {
+  text: string;
+  hide: boolean;
+  switch_inline_query_current_chat: string;
+}
+
+export interface GameButton {
+  text: string;
+  hide: boolean;
+  callback_game: object;
+}
+
+export interface PayButton {
+  pay: boolean;
+  text: string;
+  hide: boolean;
+}
+
+export interface Buttons {
+  url?: string;
+  pay?: boolean;
+  text: string;
+  callback_data?: string;
+  callback_game?: CallbackGame;
+  switch_inline_query?: string;
+  switch_inline_query_current_chat?: string;
+}
+
+export class Markup {
+  forceReply(value?: boolean): Markup;
+
+  removeKeyboard(value?: boolean): Markup;
+
+  selective(value?: boolean): Markup;
+
+  extra(options?: object): object;
+
+  keyboard(buttons: (Buttons | string)[] | (Buttons | string)[][], options?: object): Markup & tt.ReplyKeyboardMarkup;
+
+  resize(value?: boolean): Markup;
+
+  oneTime(value?: boolean): Markup;
+
+  inlineKeyboard(buttons: Buttons[] | Buttons[][], options: object): Markup & tt.InlineKeyboardMarkup;
+
+  button(text: string, hide: boolean): Button;
+
+  contactRequestButton(text: string, hide: boolean): ContactRequestButton;
+
+  locationRequestButton(text: string, hide: boolean): LocationRequestButton;
+
+  urlButton(text: string, url: string, hide: boolean): UrlButton;
+
+  callbackButton(text: string, data: string, hide: boolean): CallbackButton;
+
+  switchToChatButton(text: string, value: string, hide: boolean): SwitchToChatButton;
+
+  switchToCurrentChatButton(text: string, value: string, hide: boolean): SwitchToCurrentChatButton;
+
+  gameButton(text: string, hide: boolean): GameButton;
+
+  payButton(text: string, hide: boolean): PayButton;
+
+  static removeKeyboard(value: string): Markup;
+
+  static forceReply(value?: string): Markup;
+
+  static keyboard(buttons: (Buttons | string)[] | (Buttons | string)[][], options?: object): Markup & tt.ReplyKeyboardMarkup;
+
+  static inlineKeyboard(buttons: CallbackButton[] | CallbackButton[][] | UrlButton[] | UrlButton[][], options?: object): Markup & tt.InlineKeyboardMarkup;
+
+  static resize(value?: boolean): Markup;
+
+  static selective(value?: boolean): Markup;
+
+  static oneTime(value?: boolean): Markup;
+
+  static button(text: string, hide?: boolean): Button;
+
+  static contactRequestButton(text: string, hide?: boolean): ContactRequestButton;
+
+  static locationRequestButton(text: string, hide?: boolean): LocationRequestButton;
+
+  static urlButton(text: string, url: string, hide?: boolean): UrlButton;
+
+  static callbackButton(text: string, data: string, hide?: boolean): CallbackButton;
+
+  static switchToChatButton(text: string, value: string, hide?: boolean): SwitchToChatButton;
+
+  static switchToCurrentChatButton(text: string, value: string, hide?: boolean): SwitchToCurrentChatButton;
+
+  static gameButton(text: string, hide?: boolean): GameButton;
+
+  static payButton(text: string, hide?: boolean): PayButton;
+}
+
+export class Extra {
+  constructor(opts: object);
+
+  load(opts: object): Extra;
+
+  inReplyTo(messageId: string | number): Extra;
+
+  notifications(value?: boolean): Extra;
+
+  webPreview(value?: boolean): Extra;
+
+  markup(markup: any): tt.ExtraEditMessage;
+
+  HTML(value?: boolean): Extra;
+
+  markdown(value?: boolean): Extra;
+
+  static load(opts: object): Extra;
+
+  static inReplyTo(messageId: string | number): Extra;
+
+  static notifications(value?: boolean): Extra;
+
+  static webPreview(value?: boolean): Extra;
+
+  static markup(markup: any): Extra;
+
+  static HTML(value?: boolean): Extra;
+
+  static markdown(value?: boolean): Extra;
+}
+
+export interface TelegrafConstructor extends ComposerConstructor {
+  /**
+   * Initialize new Telegraf app.
+   * @param token Bot token
+   * @param options options
+   * @example
+   * new Telegraf(token, options)
+   */
+  new <TContext extends ContextMessageUpdate>(token: string, options?: TelegrafOptions): Telegraf<TContext>;
+
+  log(logFn?: Function): Middleware<ContextMessageUpdate>;
+}
+
+export interface TOptions {
+
+  /**
+   * Telegram options
+   */
+  telegram?: {
+    /**
+     * https.Agent instance, allows custom proxy, certificate, keep alive, etc.
+     */
+    agent: Agent
+
+    /**
+     * Reply via webhook
+     */
+    webhookReply: boolean
+  }
+
+  /**
+   * Bot username
+   */
+  username?: string
+
+  /**
+   * Handle `channel_post` updates as messages
+   */
+  channelMode?: boolean
+
+  retryAfter?: number
+
+  handlerTimeout?: number
+}
 
 export default Telegraf

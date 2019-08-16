@@ -9,7 +9,8 @@ const UpdateTypes = [
   'inline_query',
   'shipping_query',
   'pre_checkout_query',
-  'message'
+  'message',
+  'poll'
 ]
 
 const MessageSubTypes = [
@@ -40,8 +41,14 @@ const MessageSubTypes = [
   'channel_chat_created',
   'audio',
   'connected_website',
-  'passport_data'
+  'passport_data',
+  'poll',
+  'forward_from'
 ]
+
+const MessageSubTypesMapping = {
+  forward_from: 'forward'
+}
 
 class TelegrafContext {
   constructor (update, telegram, options) {
@@ -50,7 +57,9 @@ class TelegrafContext {
     this.options = options
     this.updateType = UpdateTypes.find((key) => key in this.update)
     if (this.updateType === 'message' || (this.options.channelMode && this.updateType === 'channel_post')) {
-      this.updateSubTypes = MessageSubTypes.filter((key) => key in this.update[this.updateType])
+      this.updateSubTypes = MessageSubTypes
+        .filter((key) => key in this.update[this.updateType])
+        .map((type) => MessageSubTypesMapping[type] || type)
     } else {
       this.updateSubTypes = []
     }
@@ -103,8 +112,8 @@ class TelegrafContext {
     return this.update.callback_query
   }
 
-  get passportData () {
-    return this.message && this.message.passport_data
+  get poll () {
+    return this.update.poll
   }
 
   get chat () {
@@ -164,11 +173,6 @@ class TelegrafContext {
   answerInlineQuery (...args) {
     this.assert(this.inlineQuery, 'answerInlineQuery')
     return this.telegram.answerInlineQuery(this.inlineQuery.id, ...args)
-  }
-
-  answerCallbackQuery (...args) {
-    this.assert(this.callbackQuery, 'answerCallbackQuery')
-    return this.telegram.answerCallbackQuery(this.callbackQuery.id, ...args)
   }
 
   answerCbQuery (...args) {
@@ -364,6 +368,11 @@ class TelegrafContext {
     return this.telegram.leaveChat(this.chat.id, ...args)
   }
 
+  setChatPermissions (...args) {
+    this.assert(this.chat, 'setChatPermissions')
+    return this.telegram.setChatPermissions(this.chat.id, ...args)
+  }
+
   getChatAdministrators (...args) {
     this.assert(this.chat, 'getChatAdministrators')
     return this.telegram.getChatAdministrators(this.chat.id, ...args)
@@ -434,6 +443,16 @@ class TelegrafContext {
     return this.telegram.sendVoice(this.chat.id, ...args)
   }
 
+  replyWithPoll (...args) {
+    this.assert(this.chat, 'replyWithPoll')
+    return this.telegram.sendPoll(this.chat.id, ...args)
+  }
+
+  stopPoll (...args) {
+    this.assert(this.chat, 'stopPoll')
+    return this.telegram.stopPoll(this.chat.id, ...args)
+  }
+
   replyWithChatAction (...args) {
     this.assert(this.chat, 'replyWithChatAction')
     return this.telegram.sendChatAction(this.chat.id, ...args)
@@ -496,11 +515,11 @@ class TelegrafContext {
   }
 
   replyWithMarkdown (markdown, extra) {
-    return this.reply(markdown, Object.assign({ 'parse_mode': 'Markdown' }, extra))
+    return this.reply(markdown, Object.assign({ parse_mode: 'Markdown' }, extra))
   }
 
   replyWithHTML (html, extra) {
-    return this.reply(html, Object.assign({ 'parse_mode': 'HTML' }, extra))
+    return this.reply(html, Object.assign({ parse_mode: 'HTML' }, extra))
   }
 
   deleteMessage (messageId) {
@@ -515,6 +534,17 @@ class TelegrafContext {
       (this.callbackQuery && this.callbackQuery.message)
     this.assert(message, 'deleteMessage')
     return this.telegram.deleteMessage(this.chat.id, message.message_id)
+  }
+
+  forwardMessage (chatId, extra) {
+    this.assert(this.chat, 'forwardMessage')
+    const message = this.message ||
+      this.editedMessage ||
+      this.channelPost ||
+      this.editedChannelPost ||
+      (this.callbackQuery && this.callbackQuery.message)
+    this.assert(message, 'forwardMessage')
+    return this.telegram.forwardMessage(chatId, this.chat.id, message.message_id, extra)
   }
 }
 

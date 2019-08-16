@@ -1,6 +1,6 @@
 const debug = require('debug')('telegraf:client')
 const crypto = require('crypto')
-const fetch = require('node-fetch')
+const fetch = require('node-fetch').default
 const fs = require('fs')
 const https = require('https')
 const path = require('path')
@@ -18,7 +18,8 @@ const WebhookBlacklist = [
   'getGameHighScores',
   'getMe',
   'getUserProfilePhotos',
-  'getWebhookInfo'
+  'getWebhookInfo',
+  'exportChatInviteLink'
 ]
 
 const DefaultExtensions = {
@@ -73,7 +74,7 @@ function buildJSONConfig (payload) {
   return Promise.resolve({
     method: 'POST',
     compress: true,
-    headers: { 'content-type': 'application/json', 'connection': 'keep-alive' },
+    headers: { 'content-type': 'application/json', connection: 'keep-alive' },
     body: JSON.stringify(payload)
   })
 }
@@ -89,7 +90,7 @@ function buildFormDataConfig (payload) {
     return {
       method: 'POST',
       compress: true,
-      headers: { 'content-type': `multipart/form-data; boundary=${boundary}`, 'connection': 'keep-alive' },
+      headers: { 'content-type': `multipart/form-data; boundary=${boundary}`, connection: 'keep-alive' },
       body: formData
     }
   })
@@ -106,6 +107,14 @@ function attachFormValue (form, id, value) {
       body: `${value}`
     })
     return Promise.resolve()
+  }
+  if (id === 'thumb') {
+    const attachmentId = crypto.randomBytes(16).toString('hex')
+    return attachFormMedia(form, value, attachmentId)
+      .then(() => form.addPart({
+        headers: { 'content-disposition': `form-data; name="${id}"` },
+        body: `attach://${attachmentId}`
+      }))
   }
   if (Array.isArray(value)) {
     return Promise.all(

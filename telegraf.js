@@ -7,13 +7,15 @@ const session = require('./session')
 const Router = require('./router')
 const Context = require('./core/context')
 const generateCallback = require('./core/network/webhook')
+const crypto = require('crypto')
+const { URL } = require('url')
 
 const DefaultOptions = {
   retryAfter: 1,
   handlerTimeout: 0
 }
 
-const noop = () => {}
+const noop = () => { }
 
 class Telegraf extends Composer {
   constructor (token, options) {
@@ -75,8 +77,8 @@ class Telegraf extends Composer {
     return this
   }
 
-  startWebhook (path, tlsOptions, port, host, cb) {
-    const webhookCb = this.webhookCallback(path)
+  startWebhook (hookPath, tlsOptions, port, host, cb) {
+    const webhookCb = this.webhookCallback(hookPath)
     const callback = cb && typeof cb === 'function'
       ? (req, res) => webhookCb(req, res, () => cb(req, res))
       : webhookCb
@@ -89,14 +91,49 @@ class Telegraf extends Composer {
     return this
   }
 
-  stop (cb = noop) {
-    this.polling.started = false
-    if (this.webhookServer) {
-      this.webhookServer.close(cb)
-    } else {
-      cb()
-    }
-    return this
+  launch (config = {}) {
+    return this.telegram.getMe()
+      .then((botInfo) => {
+        debug(`Launching @${botInfo.username}`)
+        this.options.username = botInfo.username
+        this.context.botInfo = botInfo
+        if (!config.webhook) {
+          const { timeout, limit, allowedUpdates, stopCallback } = config.polling || {}
+          return this.telegram.deleteWebhook()
+            .then(() => this.startPolling(timeout, limit, allowedUpdates, stopCallback))
+            .then(() => debug(`Bot started with long-polling`))
+        }
+        if (typeof config.webhook.domain !== 'string' && typeof config.webhook.hookPath !== 'string') {
+          throw new Error('Webhook domain or webhook path is required')
+        }
+        let domain = config.webhook.domain || ''
+        if (domain.startsWith('https://') || domain.startsWith('http://')) {
+          domain = new URL(domain).host
+        }
+        const hookPath = config.webhook.hookPath || `/telegraf/${crypto.randomBytes(32).toString('hex')}`
+        const { port, host, tlsOptions, cb } = config.webhook
+        this.startWebhook(hookPath, tlsOptions, port, host, cb)
+        if (!domain) {
+          debug(`Bot started with webhook`)
+          return
+        }
+        return this.telegram
+          .setWebhook(`https://${domain}${hookPath}`)
+          .then(() => debug(`Bot started with webhook @ https://${domain}`))
+      })
+  }
+
+  stop (cb) {
+    return new Promise((resolve) => {
+      const done = () => resolve() & cb()
+      if (this.webhookServer) {
+        return this.webhookServer.close(done)
+      } else if (!this.polling.started) {
+        return done()
+      }
+      this.polling.stopCallback = done
+      this.polling.started = false
+    })
   }
 
   handleUpdates (updates) {
@@ -122,10 +159,11 @@ class Telegraf extends Composer {
   }
 
   fetchUpdates () {
-    const { timeout, limit, offset, started, allowedUpdates } = this.polling
-    if (!started) {
+    if (!this.polling.started) {
+      this.polling.stopCallback && this.polling.stopCallback()
       return
     }
+    const { timeout, limit, offset, allowedUpdates } = this.polling
     this.telegram.getUpdates(timeout, limit, offset, allowedUpdates)
       .catch((err) => {
         if (err.code === 401 || err.code === 409) {
@@ -135,7 +173,10 @@ class Telegraf extends Composer {
         console.error(`Failed to fetch updates. Waiting: ${wait}s`, err.message)
         return new Promise((resolve) => setTimeout(resolve, wait * 1000, []))
       })
-      .then((updates) => this.handleUpdates(updates).then(() => updates))
+      .then((updates) => this.polling.started
+        ? this.handleUpdates(updates).then(() => updates)
+        : []
+      )
       .catch((err) => {
         console.error('Failed to process updates.', err)
         this.polling.started = false

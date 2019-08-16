@@ -1,4 +1,3 @@
-const util = require('util')
 const replicators = require('./core/replicators')
 const ApiClient = require('./core/network/client')
 const TelegramPassport = require('telegram-passport')
@@ -9,7 +8,7 @@ class Telegram extends ApiClient {
   }
 
   getFile (fileId) {
-    return this.callApi('getFile', {file_id: fileId})
+    return this.callApi('getFile', { file_id: fileId })
   }
 
   getFileLink (fileId) {
@@ -25,7 +24,7 @@ class Telegram extends ApiClient {
   }
 
   getUpdates (timeout, limit, offset, allowedUpdates) {
-    let url = `getUpdates?offset=${offset}&limit=${limit}&timeout=${timeout}`
+    const url = `getUpdates?offset=${offset}&limit=${limit}&timeout=${timeout}`
     return this.callApi(url, {
       allowed_updates: allowedUpdates
     })
@@ -151,12 +150,20 @@ class Telegram extends ApiClient {
     return this.callApi('sendMediaGroup', Object.assign({ chat_id: chatId, media }, extra))
   }
 
+  sendPoll (chatId, question, options, extra) {
+    return this.callApi('sendPoll', Object.assign({ chat_id: chatId, question, options }, extra))
+  }
+
+  stopPoll (chatId, messageId, extra) {
+    return this.callApi('stopPoll', Object.assign({ chat_id: chatId, message_id: messageId }, extra))
+  }
+
   getChat (chatId) {
-    return this.callApi('getChat', {chat_id: chatId})
+    return this.callApi('getChat', { chat_id: chatId })
   }
 
   getChatAdministrators (chatId) {
-    return this.callApi('getChatAdministrators', {chat_id: chatId})
+    return this.callApi('getChatAdministrators', { chat_id: chatId })
   }
 
   getChatMember (chatId, userId) {
@@ -164,11 +171,15 @@ class Telegram extends ApiClient {
   }
 
   getChatMembersCount (chatId) {
-    return this.callApi('getChatMembersCount', {chat_id: chatId})
+    return this.callApi('getChatMembersCount', { chat_id: chatId })
   }
 
   answerInlineQuery (inlineQueryId, results, extra) {
     return this.callApi('answerInlineQuery', Object.assign({ inline_query_id: inlineQueryId, results: JSON.stringify(results) }, extra))
+  }
+
+  setChatPermissions (chatId, permissions) {
+    return this.callApi('setChatPermissions', { chat_id: chatId, permissions })
   }
 
   kickChatMember (chatId, userId, untilDate) {
@@ -212,21 +223,11 @@ class Telegram extends ApiClient {
   }
 
   leaveChat (chatId) {
-    return this.callApi('leaveChat', {chat_id: chatId})
+    return this.callApi('leaveChat', { chat_id: chatId })
   }
 
   unbanChatMember (chatId, userId) {
     return this.callApi('unbanChatMember', { chat_id: chatId, user_id: userId })
-  }
-
-  answerCallbackQuery (callbackQueryId, text, url, showAlert, cacheTime) {
-    return this.callApi('answerCallbackQuery', {
-      callback_query_id: callbackQueryId,
-      text: text,
-      url: url,
-      show_alert: showAlert,
-      cache_time: cacheTime
-    })
   }
 
   answerCbQuery (callbackQueryId, text, showAlert, extra) {
@@ -400,11 +401,9 @@ class Telegram extends ApiClient {
     if (!type) {
       throw new Error('Unsupported message type')
     }
-    const opts = Object.assign({chat_id: chatId}, replicators[type](message), extra)
+    const opts = Object.assign({ chat_id: chatId }, replicators[type](message), extra)
     return this.callApi(replicators.copyMethods[type], opts)
   }
 }
-
-Telegram.prototype.answerCallbackQuery = util.deprecate(Telegram.prototype.answerCallbackQuery, '️⚠️ Telegraf: answerCallbackQuery() is deprecated, use answerCbQuery() instead')
 
 module.exports = Telegram

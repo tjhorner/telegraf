@@ -1,11 +1,13 @@
 ## telegraf.js
 
+Modern Telegram bot framework.
+
 Bots are special [Telegram](https://telegram.org) accounts designed to handle messages automatically. 
 Users can interact with bots by sending them command messages in private or group chats. 
 These accounts serve as an interface for code running somewhere on your server.
 
 ![Telegraf](header.png)
-[![Bot API Version](https://img.shields.io/badge/Bot%20API-v4.0-f36caf.svg?style=flat-square)](https://core.telegram.org/bots/api)
+[![Bot API Version](https://img.shields.io/badge/Bot%20API-v4.4-f36caf.svg?style=flat-square)](https://core.telegram.org/bots/api)
 [![NPM Version](https://img.shields.io/npm/v/telegraf.svg?style=flat-square)](https://www.npmjs.com/package/telegraf)
 [![node](https://img.shields.io/node/v/telegraf.svg?style=flat-square)](https://www.npmjs.com/package/telegraf)
 [![Build Status](https://img.shields.io/travis/telegraf/telegraf.svg?branch=master&style=flat-square)](https://travis-ci.org/telegraf/telegraf)
@@ -13,7 +15,7 @@ These accounts serve as an interface for code running somewhere on your server.
 
 #### Features
 
-- Full [Telegram Bot API 4.0](https://core.telegram.org/bots/api) support
+- Full [Telegram Bot API 4.4](https://core.telegram.org/bots/api) support
 - [Telegram Payment Platform](https://telegram.org/blog/payments)
 - [HTML5 Games](https://core.telegram.org/bots/api#games)
 - [Inline mode](https://core.telegram.org/bots/api#inline-mode)
@@ -41,14 +43,11 @@ $ yarn add telegraf
 const Telegraf = require('telegraf')
 
 const bot = new Telegraf(process.env.BOT_TOKEN)
-
 bot.start((ctx) => ctx.reply('Welcome'))
 bot.help((ctx) => ctx.reply('Send me a sticker'))
 bot.on('sticker', (ctx) => ctx.reply('👍'))
 bot.hears('hi', (ctx) => ctx.reply('Hey there'))
-bot.hears(/buy/i, (ctx) => ctx.reply('Buy-buy'))
-
-bot.startPolling()
+bot.launch()
 ```
 
 
@@ -59,17 +58,17 @@ const bot = new Telegraf(process.env.BOT_TOKEN)
 bot.command('oldschool', (ctx) => ctx.reply('Hello'))
 bot.command('modern', ({ reply }) => reply('Yo'))
 bot.command('hipster', Telegraf.reply('λ'))
-bot.startPolling()
+bot.launch()
 ```
 
 For additional bot examples see [`examples`](https://github.com/telegraf/telegraf/tree/master/docs/examples) folder.
 
-<p class="tip">
-  Also, checkout our <a href="https://github.com/telegraf/micro-bot">step-by-step instructions</a> for building and deploying basic bot with <a href="https://github.com/telegraf/micro-bot">🤖 micro-bot</a> (Telegraf high level wrapper)
-</p>
-
 **Community bots:**
 
+* [OneQRBot: scan and generate QR](https://github.com/Khuzha/oneqrbot)
+* [RandomPassBot: generate a password](https://github.com/Khuzha/randompassbot)
+* [Referal system: channels promoter](https://github.com/Khuzha/refbot)
+* [SimpleRegBot](https://github.com/Khuzha/simpleRegBot)
 * [yt-search-bot](https://github.com/Finalgalaxy/yt-search-bot)
 * [scrobblerBot](https://github.com/drvirtuozov/scrobblerBot)
 * [Counter Bot](https://github.com/leodj/telegram-counter-bot)
@@ -83,6 +82,19 @@ For additional bot examples see [`examples`](https://github.com/telegraf/telegra
 * [Syntax Highlighter Bot](https://github.com/piterden/syntax-highlighter-bot)
 * [PodSearch bot(TypeScript)](https://fazendaaa.github.io/podsearch_bot/)
 * [YTubevideoBot](https://github.com/n1ghtw0lff/YTubevideoBot)
+* [Nyaa.si bot](https://github.com/ejnshtein/nyaasi-bot)
+* [Mangadex bot](https://github.com/ejnshtein/mangadex_bot)
+* [Ordis Prime](https://github.com/MaxTgr/Ordis-Prime)
+* [telegraf-rutracker-transmission](https://github.com/DZamataev/telegraf-rutracker-transmission)
+* [kitchen-timer-bot](https://github.com/DZamataev/kitchen-timer-bot)
+* [Eve Movies bot](https://github.com/dmbaranov/evemovies-bot)
+* [Shieldy](https://github.com/backmeupplz/shieldy)
+* [Temply](https://github.com/backmeupplz/temply)
+* [Randy](https://github.com/backmeupplz/randymbot)
+* [Voicy](https://github.com/backmeupplz/voicy)
+* [Watchy](https://github.com/backmeupplz/watchy)
+* [Memcoin](https://github.com/backmeupplz/memcoin)
+* [BooksAndBot](https://github.com/dmtrbrl/BooksAndBot)
 * Send PR to add link to your bot
 
 ## Introduction
@@ -124,6 +136,7 @@ bot.use((ctx, next) => {
 })
 
 bot.on('text', (ctx) => ctx.reply('Hello World'))
+bot.launch()
 ```
 
 ##### Cascading with async functions
@@ -145,6 +158,7 @@ bot.use(async (ctx, next) => {
 - [Redis powered session](https://github.com/telegraf/telegraf-session-redis)
 - [Local powered session (via lowdb)](https://github.com/RealSpeaker/telegraf-session-local)
 - [Rate-limiting](https://github.com/telegraf/telegraf-ratelimit)
+- [Menus via inline keyboards](https://github.com/EdJoPaTo/telegraf-inline-menu)
 - [Natural language processing via wit.ai](https://github.com/telegraf/telegraf-wit)
 - [Natural language processing via recast.ai](https://github.com/telegraf/telegraf-recast)
 - [Multivariate and A/B testing](https://github.com/telegraf/telegraf-experiments)
@@ -160,21 +174,20 @@ To perform custom error-handling logic use following snippet:
 
 ```js
 const bot = new Telegraf(process.env.BOT_TOKEN)
-
 bot.catch((err) => {
   console.log('Ooops', err)
 })
+bot.start((ctx) => ctx.reply(42/0))
+bot.launch()
 ``` 
 
 #### Context
 
-A Telegraf Context encapsulates telegram message.
+A Telegraf Context encapsulates telegram update.
 Context is created per request and contains following props:
 
 * `ctx.telegram `            - Telegram client instance
-* `ctx.webhookReply `        - Shortcut to `ctx.telegram.webhookReply`
 * `ctx.updateType `          - Update type (message, inline_query, etc.)
-
 * `[ctx.updateSubTypes]`     - Update subtypes (text, sticker, audio, etc.)
 * `[ctx.message]`            - Received message
 * `[ctx.editedMessage]`      - Edited message
@@ -185,9 +198,11 @@ Context is created per request and contains following props:
 * `[ctx.preCheckoutQuery]`   - Precheckout query
 * `[ctx.channelPost]`        - New incoming channel post of any kind — text, photo, sticker, etc.
 * `[ctx.editedChannelPost]`  - New version of a channel post that is known to the bot and was edited
+* `[ctx.poll]`               - New version of a anonymous poll that is known to the bot and was changed
 * `[ctx.chat]`               - Current chat info
 * `[ctx.from]`               - Sender info
-* `[ctx.match]`              - Regex match (available only for `hears`, `command`, `action` handlers)
+* `[ctx.match]`              - Regex match (available only for `hears`, `command`, `action`, `inlineQuery` handlers)
+* `ctx.webhookReply `        - Shortcut to `ctx.telegram.webhookReply`
 
 ```js
 bot.use((ctx) => {
@@ -210,6 +225,8 @@ bot.on('text', (ctx) => {
   const scores = ctx.db.getScores(ctx.message.from.username)
   return ctx.reply(`${ctx.message.from.username}: ${score}`)
 })
+
+bot.launch()
 ```
 
 ##### Shortcuts
@@ -222,6 +239,7 @@ Context shortcuts for **message** update:
 * `deleteMessage`           -> [`telegram.deleteMessage`](#deletemessage)
 * `deleteStickerFromSet`    -> [`telegram.deleteStickerFromSet`](#deletestickerfromset)
 * `exportChatInviteLink`    -> [`telegram.exportChatInviteLink`](#exportchatinvitelink)
+* `forwardMessage`          -> [`telegram.forwardMessage`](#forwardmessage)
 * `getChat`                 -> [`telegram.getChat`](#getchat)
 * `getChatAdministrators`   -> [`telegram.getChatAdministrators`](#getchatadministrators)
 * `getChatMember`           -> [`telegram.getChatMember`](#getchatmember)
@@ -244,6 +262,8 @@ Context shortcuts for **message** update:
 * `replyWithVideo`          -> [`telegram.sendVideo`](#sendvideo)
 * `replyWithVideoNote`      -> [`telegram.sendVideoNote`](#sendvideonote)
 * `replyWithVoice`          -> [`telegram.sendVoice`](#sendvoice)
+* `replyWithPoll`           -> [`telegram.sendPoll`](#sendpoll)
+* `stopPoll`                -> [`telegram.stopPoll`](#stoppoll)
 * `setChatDescription`      -> [`telegram.setChatDescription`](#setchatdescription)
 * `setChatPhoto`            -> [`telegram.setChatPhoto`](#setchatphoto)
 * `setChatTitle`            -> [`telegram.setChatTitle`](#setchattitle)
@@ -265,6 +285,7 @@ Context shortcuts for **callback_query** update:
 * `editMessageReplyMarkup`  -> [`telegram.editMessageReplyMarkup`](#editmessagereplymarkup)
 * `editMessageText`         -> [`telegram.editMessageText`](#editmessagetext)
 * `exportChatInviteLink`    -> [`telegram.exportChatInviteLink`](#exportchatinvitelink)
+* `forwardMessage`          -> [`telegram.forwardMessage`](#forwardmessage)
 * `getChat`                 -> [`telegram.getChat`](#getchat)
 * `getChatAdministrators`   -> [`telegram.getChatAdministrators`](#getchatadministrators)
 * `getChatMember`           -> [`telegram.getChatMember`](#getchatmember)
@@ -288,6 +309,8 @@ Context shortcuts for **callback_query** update:
 * `replyWithAnimation`      -> [`telegram.sendAnimation`](#sendanimation)
 * `replyWithVideoNote`      -> [`telegram.sendVideoNote`](#sendvideonote)
 * `replyWithVoice`          -> [`telegram.sendVoice`](#sendvoice)
+* `replyWithPoll`           -> [`telegram.sendPoll`](#sendpoll)
+* `stopPoll`                -> [`telegram.stopPoll`](#stoppoll)
 * `setChatDescription`      -> [`telegram.setChatDescription`](#setchatdescription)
 * `setChatPhoto`            -> [`telegram.setChatPhoto`](#setchatphoto)
 * `setChatTitle`            -> [`telegram.setChatTitle`](#setchattitle)
@@ -344,6 +367,8 @@ bot.on('inline_query', (ctx) => {
   // Using shortcut
   ctx.answerInlineQuery(result)
 })
+
+bot.launch()
 ```
 
 #### State
@@ -362,6 +387,8 @@ bot.use((ctx, next) => {
 bot.on('text', (ctx) => {
   return ctx.reply(`Hello ${ctx.state.role}`)
 })
+
+bot.launch()
 ```
 
 #### Session
@@ -376,9 +403,26 @@ bot.on('text', (ctx) => {
   ctx.session.counter++
   return ctx.reply(`Message counter:${ctx.session.counter}`)
 })
+
+bot.launch()
 ```
 
 **Note: For persistent sessions you might use any of [`telegraf-session-*`](https://www.npmjs.com/search?q=telegraf-session) middleware.**
+
+**Tip: To use same session in private chat with bot and in inline mode, use following session key resolver:**
+
+```js
+{
+  getSessionKey: (ctx) => {
+    if (ctx.from && ctx.chat) {
+      return `${ctx.from.id}:${ctx.chat.id}`
+    } else if (ctx.from && ctx.inlineQuery) {
+      return `${ctx.from.id}:${ctx.from.id}`
+    }
+    return null
+  }
+}
+```
 
 #### Update types
 
@@ -406,6 +450,7 @@ Available update sub-types:
 - `contact`
 - `location`
 - `venue`
+- `forward`
 - `new_chat_members`
 - `left_chat_member`
 - `new_chat_title`
@@ -457,7 +502,7 @@ const tlsOptions = {
 
 // Set telegram webhook
 bot.telegram.setWebhook('https://server.tld:8443/secret-path', {
-  source: fs.readFileSync('server-cert.pem')
+  source: 'server-cert.pem'
 })
 
 // Start https webhook
@@ -792,6 +837,18 @@ Registers middleware for handling `callback_data` actions with regular expressio
 | middleware | `function` | Middleware |
 
 
+##### inlineQuery
+
+Registers middleware for handling `inline_query` actions with regular expressions.
+
+`telegraf.inlineQuery(triggers, ...middleware)`
+
+| Param | Type | Description |
+| --- | --- | --- |
+| triggers | `string/string[]/RegEx/RegEx[]` | Triggers |
+| middleware | `function` | Middleware |
+
+
 ##### gameQuery
 
 Registers middleware for handling `callback_data` actions with game query.
@@ -801,6 +858,30 @@ Registers middleware for handling `callback_data` actions with game query.
 | Param | Type | Description |
 | --- | --- | --- |
 | middleware | `function` | Middleware |
+
+##### launch
+
+Launch bot in long-polling or webhook mode. 
+
+`telegraf.launch(options) => Promise`
+
+| Param | Type | Default | Description |
+| --- | --- | --- | --- |
+| [options] | `object` | Launch options |
+
+Launch options:
+
+```js
+{
+  // Start bot in polling mode (Default)
+  // See startPolling reference
+  polling: { timeout, limit,  allowedUpdates,  stopCallback },
+
+  // Start bot in webhook mode
+  // See startWebhook reference
+  webhook: { domain, hookPath,  port,  host,  tlsOptions,  cb } 
+}
+```
 
 ##### startPolling
 
@@ -819,11 +900,11 @@ Start poll updates.
 
 Start listening @ `https://host:port/webhookPath` for Telegram calls.
 
-`telegraf.startWebhook(webhookPath, [tlsOptions], port, [host])`
+`telegraf.startWebhook(hookPath, [tlsOptions], port, [host])`
 
 | Param | Type | Description |
 | ---  | --- | --- |
-| webhookPath | `string` | Webhook url path (see Telegraf.setWebhook) |
+| hookPath | `string` | Webhook url path (see Telegraf.setWebhook) |
 | [tlsOptions] | `object` | [TLS server options](https://nodejs.org/api/tls.html#tls_tls_createserver_options_secureconnectionlistener). Pass null to use http |
 | port | `number` | Port number |
 | [host] | `string` | Hostname |
@@ -832,7 +913,7 @@ Start listening @ `https://host:port/webhookPath` for Telegram calls.
 
 Stop Webhook and polling
 
-`telegraf.stop([callback])`
+`telegraf.stop() => Promise`
 
 ##### webhookCallback
 
@@ -900,6 +981,17 @@ Generates middleware for handling `callbackQuery` data with regular expressions.
 | triggers | `string/string[]/RegEx/RegEx[]/Function/Function[]` | Triggers |
 | handler | `function` | Handler |
 
+##### Telegraf.inlineQuery
+
+Generates middleware for handling `inlineQuery` data with regular expressions.
+
+`Telegraf.inlineQuery(triggers, ...middleware) => function`
+
+| Param | Type | Description |
+| --- | --- | --- |
+| triggers | `string/string[]/RegEx/RegEx[]/Function/Function[]` | Triggers |
+| handler | `function` | Handler |
+
 ##### Telegraf.passThru
 
 Generates pass thru middleware.
@@ -955,6 +1047,83 @@ Generates branch middleware.
 | trueMiddleware | `function` | true action  middleware |
 | falseMiddleware | `function` | false action middleware |
 
+
+##### Telegraf.email
+
+Generates middleware for handling messages with `email` entity.
+
+`Telegraf.email(triggers, ...middleware) => function`
+
+| Param | Type | Description |
+| --- | --- | --- |
+| triggers | `string/string[]/RegEx/RegEx[]/Function/Function[]` | Triggers |
+| handler | `function` | Handler |
+
+##### Telegraf.hashtag
+
+Generates middleware for handling messages with `hashtag` entity.
+
+`Telegraf.hashtag(triggers, ...middleware) => function`
+
+| Param | Type | Description |
+| --- | --- | --- |
+| triggers | `string/string[]/RegEx/RegEx[]/Function/Function[]` | Triggers |
+| handler | `function` | Handler |
+
+##### Telegraf.cashtag
+
+Generates middleware for handling messages with `cashtag` entity.
+
+`Telegraf.cashtag(triggers, ...middleware) => function`
+
+| Param | Type | Description |
+| --- | --- | --- |
+| triggers | `string/string[]/RegEx/RegEx[]/Function/Function[]` | Triggers |
+| handler | `function` | Handler |
+
+##### Telegraf.url
+
+Generates middleware for handling messages with `url` entity.
+
+`Telegraf.url(triggers, ...middleware) => function`
+
+| Param | Type | Description |
+| --- | --- | --- |
+| triggers | `string/string[]/RegEx/RegEx[]/Function/Function[]` | Triggers |
+| handler | `function` | Handler |
+
+##### Telegraf.phone
+
+Generates middleware for handling messages with `phone` entity.
+
+`Telegraf.phone(triggers, ...middleware) => function`
+
+| Param | Type | Description |
+| --- | --- | --- |
+| triggers | `string/string[]/RegEx/RegEx[]/Function/Function[]` | Triggers |
+| handler | `function` | Handler |
+
+##### Telegraf.textLink
+
+Generates middleware for handling messages with `text_link` entity.
+
+`Telegraf.textLink(triggers, ...middleware) => function`
+
+| Param | Type | Description |
+| --- | --- | --- |
+| triggers | `string/string[]/RegEx/RegEx[]/Function/Function[]` | Triggers |
+| handler | `function` | Handler |
+
+##### Telegraf.textMention
+
+Generates middleware for handling messages with `text_mention` entity.
+
+`Telegraf.textMention(triggers, ...middleware) => function`
+
+| Param | Type | Description |
+| --- | --- | --- |
+| triggers | `string/string[]/RegEx/RegEx[]/Function/Function[]` | Triggers |
+| handler | `function` | Handler |
 
 #### Telegram
 
@@ -1347,6 +1516,17 @@ Returns profiles photos for provided user.
 | [offset] | `number` | Offset |
 | [limit] | `number` | Limit |
 
+##### setChatPermissions
+
+Use this method to set default chat permissions for all members.
+
+`telegram.setChatPermissions(chatId, permissions) => Promise`
+
+| Param | Type | Description |
+| --- | --- | --- |
+| chatId | `number/string` | Chat id |
+| permissions | `object` | [New default chat permissions](https://core.telegram.org/bots/api#chatpermissions)|
+
 ##### kickChatMember
 
 Use this method to kick a user from a group or a supergroup.
@@ -1698,8 +1878,34 @@ Sends voice.
 | Param | Type | Description |
 | --- | --- | --- |
 | chatId | `number/string` | Chat id |
-| voice | `File` | Document |
+| voice | `File/string` | File, file id or HTTP URL |
 | [extra] | `object` | [Extra parameters](https://core.telegram.org/bots/api#sendvoice)|
+
+##### sendPoll
+
+Sends anonymous poll.
+
+`telegram.sendPoll(chatId, question, options, [extra]) => Promise`
+
+| Param | Type | Description |
+| --- | --- | --- |
+| chatId | `number/string` | Chat id |
+| question | `string` | Poll question |
+| options| `string[]` | Answer options |
+| [extra] | `object` | [Extra parameters](https://core.telegram.org/bots/api#sendpoll)|
+
+##### stopPoll
+
+Stops anonymous poll.
+
+`telegram.stopPoll(chatId, messageId, [extra]) => Promise`
+
+| Param | Type | Description |
+| --- | --- | --- |
+| chatId | `number/string` | Chat id |
+| messageId | `string` | Poll message id |
+| options| `string[]` | Answer options |
+| [extra] | `object` | [Extra parameters](https://core.telegram.org/bots/api#stoppoll)|
 
 ##### stopMessageLiveLocation
 
@@ -1738,7 +1944,7 @@ Specifies an url to receive incoming updates via an outgoing webhook.
 | ---  | --- | --- |
 | url  | `string` | Public url for webhook |
 | [cert] | `File` | SSL public certificate |
-| [maxConnections] | `number` | User id |
+| [maxConnections] | `number` | Maximum allowed number of simultaneous HTTPS connections to the webhook |
 | [allowedUpdates] | `string[]` | List the types of updates you want your bot to receive |
 
 ##### unbanChatMember
@@ -1816,30 +2022,3 @@ bot.on('message', (ctx) => {
   ctx.scene.leave()                                  // Leave scene s
 })
 ```
-
-## Recipes
-
-<p class="tip">
-  Feel free to send PR with additional recipes.
-</p>
-
-##### Command handling in group
-
-For handling group/supergroup commands(`/start@your_bot`) you need to provide bot username.
-
-```js
-const bot = new Telegraf(process.env.BOT_TOKEN, {username: 'your_bot'})
-```
-
-Also, you can get the username from Telegram server.
-
-```js
-const bot = new Telegraf(process.env.BOT_TOKEN)
-
-bot.telegram.getMe().then((botInfo) => {
-  bot.options.username = botInfo.username
-})
-
-bot.command('foo', (ctx) => ctx.reply('Hello World'))
-```
-
